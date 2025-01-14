@@ -12,6 +12,7 @@ namespace ew {
 	class Shader {
 	public:
 		Shader(const std::string& vertexShader, const std::string& fragmentShader);
+
 		void use()const;
 		void setInt(const std::string& name, int v) const;
 		void setFloat(const std::string& name, float v) const;
