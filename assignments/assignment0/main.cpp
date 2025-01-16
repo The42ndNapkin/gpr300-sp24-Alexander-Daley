@@ -20,6 +20,13 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
 
+struct Material {
+	float diffuseK = 1; //diffuse light coeficcient (0-1)
+	float specularK = 0.5; //Specular light coeficcient (0-1)
+	float ambientK = 0.5; //Ambient light coeficcient (0-1)
+	float shininess = 128;  //Size of specular highlight
+}material;
+
 //Global state
 int screenWidth = 1080;
 int screenHeight = 720;
@@ -29,6 +36,7 @@ float deltaTime;
 //cache
 ew::Camera newCamera;
 ew::Transform suzanneTransform;
+ew::CameraController cameraController;
 
 void qwerty(ew::Shader &shader, ew::Model &model, GLuint texture, float deltaTime)
 {
@@ -48,7 +56,12 @@ void qwerty(ew::Shader &shader, ew::Model &model, GLuint texture, float deltaTim
 	shader.setMat4("camera_viewproj", newCamera.projectionMatrix()*newCamera.viewMatrix());
 	shader.setVec3("_eyePos", newCamera.position);
 	shader.setInt("_MainTexture", 0);
+	shader.setFloat("_Material.ambientK", material.ambientK);
+	shader.setFloat("_Material.specularK", material.specularK);
+	shader.setFloat("_Material.diffuseK", material.diffuseK);
+	shader.setFloat("_Material.shininess", material.shininess);
 	model.draw(); //Draws monkey model using current shader
+	
 }
 
 int main() {
@@ -77,6 +90,7 @@ int main() {
 
 		//RENDER
 		qwerty(newShade, suzanne, brickTexture, deltaTime);
+		cameraController.move(window, &newCamera, deltaTime);
 
 		drawUI();
 
@@ -85,13 +99,32 @@ int main() {
 	printf("Shutting down...");
 }
 
+void resetCamera(ew::Camera* camera, ew::CameraController* controller) {
+	camera->position = glm::vec3(0, 0, 5.0f);
+	camera->target = glm::vec3(0);
+	controller->yaw = controller->pitch = 0;
+}
+
 void drawUI() {
 	ImGui_ImplGlfw_NewFrame();
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui::NewFrame();
 
 	ImGui::Begin("Settings");
-	ImGui::Text("Add Controls Here!");
+	//button to reset camera
+	if (ImGui::Button("Reset Camera"))
+	{
+		resetCamera(&newCamera, &cameraController);
+	}
+	//Material properties
+	if (ImGui::CollapsingHeader("Material")) {
+		ImGui::SliderFloat("AmbientK", &material.ambientK, 0.0f, 1.0f);
+		ImGui::SliderFloat("DiffuseK", &material.diffuseK, 0.0f, 1.0f);
+		ImGui::SliderFloat("SpecularK", &material.specularK, 0.0f, 1.0f);
+		ImGui::SliderFloat("Shininess", &material.shininess, 2.0f, 1024.0f);
+	}
+
+
 	ImGui::End();
 
 	ImGui::Render();
