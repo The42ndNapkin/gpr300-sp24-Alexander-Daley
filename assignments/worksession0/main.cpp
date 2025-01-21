@@ -1,3 +1,4 @@
+#define MINIAUDIO_IMPLEMENTATION
 #include <stdio.h>
 #include <math.h>
 
@@ -11,9 +12,10 @@
 #include <ew/model.h>
 #include <ew/camera.h>
 #include <ew/cameraController.h>
-#include<ew/texture.h>
-#include<ew/transform.h>
-
+#include <ew/texture.h>
+#include <ew/transform.h>
+#include <ew/external/miniaudio.h>
+#include <stdio.h>
 
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
@@ -38,7 +40,8 @@ ew::Camera newCamera;
 ew::Transform suzanneTransform;
 ew::CameraController cameraController;
 
-void Render(ew::Shader &shader, ew::Model &model, GLuint texture, float deltaTime)
+
+void Render(ew::Shader &shader, ew::Model &model, GLuint texture, float deltaTime, GLuint tex2)
 {
 	//Pipeline definition
 	glEnable(GL_CULL_FACE);
@@ -50,12 +53,17 @@ void Render(ew::Shader &shader, ew::Model &model, GLuint texture, float deltaTim
 	glActiveTexture(GL_TEXTURE);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, tex2);
+
 	shader.use();
 	suzanneTransform.rotation = glm::rotate(suzanneTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
+	suzanneTransform.scale = glm::vec3(0.05);
 	shader.setMat4("transform_model", suzanneTransform.modelMatrix());
 	shader.setMat4("camera_viewproj", newCamera.projectionMatrix()*newCamera.viewMatrix());
 	shader.setVec3("_eyePos", newCamera.position);
 	shader.setInt("_MainTexture", 0);
+	shader.setInt("zatoon", 1);
 	shader.setFloat("_Material.ambientK", material.ambientK);
 	shader.setFloat("_Material.specularK", material.specularK);
 	shader.setFloat("_Material.diffuseK", material.diffuseK);
@@ -70,7 +78,8 @@ int main() {
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	ew::Shader newShade = ew::Shader("assets/lit.vert", "assets/lit.frag");
-	ew::Model suzanne = ew::Model("assets/Suzanne.obj");
+	ew::Shader toonShader = ew::Shader("assets/toonshading.vert", "assets/toonshading.frag");
+	ew::Model skull = ew::Model("assets/skull.obj");
 
 	newCamera.position = { 0.0f, 0.0f, 5.0f };
 	newCamera.target = { 0.0f, 0.0f, 0.0f };
@@ -78,6 +87,15 @@ int main() {
 	newCamera.fov = 60.0f;
 
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
+	GLuint txoTexture = ew::loadTexture("assets/Txo_dokuo.png");
+	GLuint ZAtoon = ew::loadTexture("assets/ZAtoon.png");
+	GLuint ZAtoon2 = ew::loadTexture("assets/ZAtoon 2.png");
+	
+	ma_result result;
+	ma_engine engine;
+	result = ma_engine_init(NULL, &engine);
+	ma_engine_play_sound(&engine, "assets/bad-to-the-bone.mp3", NULL);
+	ma_engine_uninit(&engine);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -89,7 +107,8 @@ int main() {
 		
 
 		//RENDER
-		Render(newShade, suzanne, brickTexture, deltaTime);
+		
+		Render(toonShader, skull, txoTexture, deltaTime, ZAtoon);
 		cameraController.move(window, &newCamera, deltaTime);
 
 		drawUI();
