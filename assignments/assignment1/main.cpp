@@ -11,8 +11,8 @@
 #include <ew/model.h>
 #include <ew/camera.h>
 #include <ew/cameraController.h>
-#include<ew/texture.h>
-#include<ew/transform.h>
+#include <ew/texture.h>
+#include <ew/transform.h>
 
 
 
@@ -34,6 +34,12 @@ struct Framebuffer {
 	GLuint depth;
 }framebuffer;
 
+struct FullscreenQuad
+{
+	GLuint vao;
+	GLuint vbo;
+}fullscreenQuad;
+
 //Global state
 int screenWidth = 1080;
 int screenHeight = 720;
@@ -44,9 +50,35 @@ float deltaTime;
 ew::Camera newCamera;
 ew::Transform suzanneTransform;
 ew::CameraController cameraController;
+static float quad_vertices[] = {
+	// pos (x, y) texcoord (u, v)
+	-1.0f,  1.0f, 0.0f, 1.0f,
+	-1.0f, -1.0f, 0.0f, 0.0f,
+		1.0f, -1.0f, 1.0f, 0.0f,
+
+	-1.0f,  1.0f, 0.0f, 1.0f,
+		1.0f, -1.0f, 1.0f, 0.0f,
+		1.0f,  1.0f, 1.0f, 1.0f,
+};
 
 void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTime)
 {
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
+
+	//Pipeline definition
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glEnable(GL_DEPTH_TEST);
+
+	glActiveTexture(GL_TEXTURE);
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 	//Pipeline definition
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
@@ -56,6 +88,8 @@ void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTim
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glActiveTexture(GL_TEXTURE);
 	glBindTexture(GL_TEXTURE_2D, texture);
+
+	
 
 	shader.use();
 	suzanneTransform.rotation = glm::rotate(suzanneTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
@@ -69,6 +103,9 @@ void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTim
 	shader.setFloat("_Material.shininess", material.shininess);
 	model.draw(); //Draws monkey model using current shader
 
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	
 }
 
 int main() {
@@ -78,6 +115,11 @@ int main() {
 
 	//initialize resources
 	ew::Shader newShade = ew::Shader("assets/lit.vert", "assets/lit.frag");
+	ew::Shader fullscreen = ew::Shader("assets/fullscreen.vert", "assets/fullscreen.frag");
+	ew::Shader inverse = ew::Shader("assets/inverse.vert", "assets/inverse.frag");
+	ew::Shader greyscale = ew::Shader("assets/greyscale.vert", "assets/greyscale.frag");
+	ew::Shader blur = ew::Shader("assets/blur.vert", "assets/blur.frag");
+	ew::Shader chromatic = ew::Shader("assets/chromatic.vert", "assets/chromatic.frag");
 	ew::Model suzanne = ew::Model("assets/Suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
@@ -86,6 +128,21 @@ int main() {
 	newCamera.target = { 0.0f, 0.0f, 0.0f };
 	newCamera.aspectRatio = (float)screenWidth / screenHeight;
 	newCamera.fov = 60.0f;
+
+	//initialize fullscreen quad
+	glGenVertexArrays(1, &fullscreenQuad.vao);
+	glGenBuffers(1, &fullscreenQuad.vbo);
+	glBindVertexArray(fullscreenQuad.vao);
+
+	glBindBuffer(GL_ARRAY_BUFFER, fullscreenQuad.vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), &quad_vertices, GL_STATIC_DRAW);
+	
+	glEnableVertexAttribArray(0); // positions
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)0);
+	glEnableVertexAttribArray(1); // texcoords
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(sizeof(float) * 2));
+
+	glBindVertexArray(0);
 
 	//initialize framebuffer
 	glGenFramebuffers(1, &framebuffer.fbo);
@@ -106,7 +163,7 @@ int main() {
 		return 0;
 	}
 
-	/*glBindFramebuffer(GL_FRAMEBUFFER, 0);*/
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -115,12 +172,38 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
-
-
 		//RENDER
 		Render(newShade, suzanne, brickTexture, deltaTime);
 		cameraController.move(window, &newCamera, deltaTime);
+		
+		//fullscreen quad pipeline
+		glDisable(GL_DEPTH_TEST);
 
+		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//Render fullscreen quad
+		//fullscreen.use();
+		//fullscreen.setInt("texture0",0);
+		// 
+		//inverse.use();
+		//inverse.setInt("texture0", 0);
+		// 
+		//greyscale.use();
+		//greyscale.setInt("texture0", 0);
+		//
+		//blur.use();
+		//blur.setInt("texture0", 0);
+		//
+		chromatic.use();
+		chromatic.setInt("texture0", 0);
+		glBindVertexArray(fullscreenQuad.vao);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D,framebuffer.color0);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		glBindVertexArray(0);
+		
 		drawUI();
 
 		glfwSwapBuffers(window);
@@ -153,7 +236,11 @@ void drawUI() {
 		ImGui::SliderFloat("Shininess", &material.shininess, 2.0f, 1024.0f);
 	}
 
-
+	ImGui::Begin("OpenGL Texture Test");
+	ImGui::Text("pointer = %x", framebuffer.color0);
+	ImGui::Text("size = %d x %d", 800, 600);
+	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color0, ImVec2(800, 600));
+	ImGui::End();
 	ImGui::End();
 
 	ImGui::Render();

@@ -27,6 +27,19 @@ struct Material {
 	float shininess = 128;  //Size of specular highlight
 }material;
 
+struct Framebuffer {
+	GLuint fbo;
+	GLuint color0;
+	GLuint color1;
+	GLuint depth;
+} framebuffer;
+
+struct FullscreenQuad
+{
+	GLuint vao;
+	GLuint vbo;
+}fullscreenQuad;
+
 //Global state
 int screenWidth = 1080;
 int screenHeight = 720;
@@ -37,18 +50,32 @@ float deltaTime;
 ew::Camera newCamera;
 ew::Transform suzanneTransform;
 ew::CameraController cameraController;
+static float quad_vertices[] = {
+		-1.0f, 1.0f, 0.0f, 1.0f,
+		-1.0f, -1.0f, 0.0f, 0.0f,
+		1.0f, -1.0f, 1.0f, 0.0f,
+
+		-1.0f, 1.0f, 0.0f, 1.0f,
+		1.0f, -1.0f, 1.0f, 0.0f,
+		1.0f, 1.0f, 1.0f, 1.0f,
+};
 
 void Render(ew::Shader &shader, ew::Model &model, GLuint texture, float deltaTime)
 {
+	glGenFramebuffers(1, &framebuffer.fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
+	
 	//Pipeline definition
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 	glEnable(GL_DEPTH_TEST);
 
-	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glActiveTexture(GL_TEXTURE);
 	glBindTexture(GL_TEXTURE_2D, texture);
+
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
 
 	shader.use();
 	suzanneTransform.rotation = glm::rotate(suzanneTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
@@ -61,7 +88,8 @@ void Render(ew::Shader &shader, ew::Model &model, GLuint texture, float deltaTim
 	shader.setFloat("_Material.diffuseK", material.diffuseK);
 	shader.setFloat("_Material.shininess", material.shininess);
 	model.draw(); //Draws monkey model using current shader
-	
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 int main() {
@@ -77,11 +105,23 @@ int main() {
 	newCamera.aspectRatio = (float)screenWidth / screenHeight;
 	newCamera.fov = 60.0f;
 
-	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
+	//initialize fullscreen quad
+	glGenVertexArrays(1, &fullscreenQuad.vao);
+	glGenBuffers(1, &fullscreenQuad.vbo);
+	glBindVertexArray(fullscreenQuad.vao);
+	
+	glBindBuffer(GL_ARRAY_BUFFER, fullscreenQuad.vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), &quad_vertices, GL_STATIC_DRAW);
+	glBindVertexArray(0);
 
+	glEnableVertexAttribArray(0); // positions
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)0);
+	glEnableVertexAttribArray(1); // texcoords
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*) (sizeof(float) * 2));
+
+	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
-
 		float time = (float)glfwGetTime();
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
@@ -91,7 +131,7 @@ int main() {
 		//RENDER
 		Render(newShade, suzanne, brickTexture, deltaTime);
 		cameraController.move(window, &newCamera, deltaTime);
-
+		
 		drawUI();
 
 		glfwSwapBuffers(window);
@@ -123,7 +163,7 @@ void drawUI() {
 		ImGui::SliderFloat("SpecularK", &material.specularK, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.shininess, 2.0f, 1024.0f);
 	}
-
+	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color0, ImVec2(800, 600));
 
 	ImGui::End();
 
@@ -169,6 +209,7 @@ GLFWwindow* initWindow(const char* title, int width, int height) {
 	ImGui::CreateContext();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init();
+	
 
 	return window;
 }
