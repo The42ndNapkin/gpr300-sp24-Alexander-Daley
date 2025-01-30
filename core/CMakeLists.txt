@@ -15,7 +15,7 @@ set(CORE_INC_DIR
  CACHE PATH "CORE INCLUDE SOURCE PATH"
 )
 
-add_library(core STATIC ${CORE_SRC} ${CORE_INC} "ew/external/miniaudio.cpp")
+add_library(core STATIC ${CORE_SRC} ${CORE_INC} "ew/external/miniaudio.cpp" "daley/framebuffer.cpp" "daley/framebuffer.h")
 
 find_package(OpenGL REQUIRED)
 
