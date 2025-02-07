@@ -60,6 +60,15 @@ static float quad_vertices[] = {
 		1.0f, -1.0f, 1.0f, 0.0f,
 		1.0f,  1.0f, 1.0f, 1.0f,
 };
+static int effectIndex = 0;
+static std::vector<std::string> post_processing_effects = {
+	"None",
+	"Greyscale",
+	"Kernel Blur",
+	"Inverse",
+	"Chromatic Aberration",
+	"CRT",
+};
 
 void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTime)
 {
@@ -156,6 +165,14 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer.color0, 0);
 
+	//Depth buffer attachment
+	glGenTextures(1, &framebuffer.depth);
+	glBindTexture(GL_TEXTURE_2D, framebuffer.depth);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 800, 600, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, framebuffer.depth, 0);
+
 	//check completeness
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 	{
@@ -182,21 +199,32 @@ int main() {
 		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		//Render fullscreen quad
-		//fullscreen.use();
-		//fullscreen.setInt("texture0",0);
-		// 
-		//inverse.use();
-		//inverse.setInt("texture0", 0);
-		// 
-		//greyscale.use();
-		//greyscale.setInt("texture0", 0);
-		//
-		//blur.use();
-		//blur.setInt("texture0", 0);
-		//
-		chromatic.use();
-		chromatic.setInt("texture0", 0);
+		//Render quad
+		switch (effectIndex)
+		{
+			case 1:
+				greyscale.use();
+				greyscale.setInt("texture0", 0);
+				break;
+			case 2:
+				blur.use();
+				blur.setInt("texture0", 0);
+				break;
+			case 3:
+				inverse.use();
+				inverse.setInt("texture0", 0);
+				break;
+			case 4:
+				chromatic.use();
+				chromatic.setInt("texture0", 0);
+				break;
+			case 5:
+				break;
+			default:
+				fullscreen.use();
+				fullscreen.setInt("texture0", 0);
+				break;
+		}
 		glBindVertexArray(fullscreenQuad.vao);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D,framebuffer.color0);
@@ -234,6 +262,23 @@ void drawUI() {
 		ImGui::SliderFloat("DiffuseK", &material.diffuseK, 0.0f, 1.0f);
 		ImGui::SliderFloat("SpecularK", &material.specularK, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.shininess, 2.0f, 1024.0f);
+	}
+
+	if (ImGui::BeginCombo("Effect", post_processing_effects[effectIndex].c_str()))
+	{
+		for (auto n = 0; n < post_processing_effects.size(); ++n)
+		{
+			auto is_selected = (post_processing_effects[effectIndex] == post_processing_effects[n]);
+			if (ImGui::Selectable(post_processing_effects[n].c_str(), is_selected))
+			{
+				effectIndex = n;
+			}
+			if (is_selected)
+			{
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+		ImGui::EndCombo();
 	}
 
 	ImGui::Begin("OpenGL Texture Test");
