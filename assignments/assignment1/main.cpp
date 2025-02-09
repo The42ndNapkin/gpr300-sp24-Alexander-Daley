@@ -67,7 +67,8 @@ static std::vector<std::string> post_processing_effects = {
 	"Kernel Blur",
 	"Inverse",
 	"Chromatic Aberration",
-	"CRT",
+	"Gamma Correction",
+	"Edge Detections",
 };
 
 void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTime)
@@ -129,6 +130,8 @@ int main() {
 	ew::Shader greyscale = ew::Shader("assets/greyscale.vert", "assets/greyscale.frag");
 	ew::Shader blur = ew::Shader("assets/blur.vert", "assets/blur.frag");
 	ew::Shader chromatic = ew::Shader("assets/chromatic.vert", "assets/chromatic.frag");
+	ew::Shader gamma = ew::Shader("assets/gamma.vert", "assets/gamma.frag");
+	ew::Shader edge = ew::Shader("assets/edgeDetect.vert", "assets/edgeDetect.frag");
 	ew::Model suzanne = ew::Model("assets/Suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
@@ -219,6 +222,12 @@ int main() {
 				chromatic.setInt("texture0", 0);
 				break;
 			case 5:
+				gamma.use();
+				gamma.setInt("texture0", 0);
+				break;
+			case 6:
+				edge.use();
+				edge.setInt("texture0", 0);
 				break;
 			default:
 				fullscreen.use();
