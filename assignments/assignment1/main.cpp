@@ -153,7 +153,8 @@ int main() {
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)0);
 	glEnableVertexAttribArray(1); // texcoords
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(sizeof(float) * 2));
-
+	
+	glDrawArrays(GL_TRIANGLES, 0, 3);
 	glBindVertexArray(0);
 
 	//initialize framebuffer
