@@ -50,6 +50,7 @@ float deltaTime;
 ew::Camera newCamera;
 ew::Transform suzanneTransform;
 ew::CameraController cameraController;
+float exposure = 1.0f;
 static float quad_vertices[] = {
 	// pos (x, y) texcoord (u, v)
 	-1.0f,  1.0f, 0.0f, 1.0f,
@@ -69,6 +70,7 @@ static std::vector<std::string> post_processing_effects = {
 	"Chromatic Aberration",
 	"Gamma Correction",
 	"Edge Detections",
+	"HDR",
 };
 
 void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTime)
@@ -132,6 +134,7 @@ int main() {
 	ew::Shader chromatic = ew::Shader("assets/chromatic.vert", "assets/chromatic.frag");
 	ew::Shader gamma = ew::Shader("assets/gamma.vert", "assets/gamma.frag");
 	ew::Shader edge = ew::Shader("assets/edgeDetect.vert", "assets/edgeDetect.frag");
+	ew::Shader hdr = ew::Shader("assets/hdr.vert", "assets/hdr.frag");
 	ew::Model suzanne = ew::Model("assets/Suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
@@ -164,7 +167,7 @@ int main() {
 	//color attachment
 	glGenTextures(1, &framebuffer.color0);
 	glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer.color0, 0);
@@ -230,6 +233,11 @@ int main() {
 				edge.use();
 				edge.setInt("texture0", 0);
 				break;
+			case 7:
+				hdr.use();
+				hdr.setInt("hdrBuffer", 0);
+				hdr.setFloat("exposure", exposure);
+				break;
 			default:
 				fullscreen.use();
 				fullscreen.setInt("texture0", 0);
@@ -290,6 +298,8 @@ void drawUI() {
 		}
 		ImGui::EndCombo();
 	}
+
+	ImGui::SliderFloat("HDR Exposure", &exposure, 0.0f, 10.0f);
 
 	ImGui::Begin("OpenGL Texture Test");
 	ImGui::Text("pointer = %x", framebuffer.color0);
