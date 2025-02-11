@@ -23,4 +23,3 @@ target_link_libraries(core PUBLIC IMGUI assimp glm)
 
 install (TARGETS core DESTINATION lib)
 install (FILES ${CORE_INC} DESTINATION include/core)
-
