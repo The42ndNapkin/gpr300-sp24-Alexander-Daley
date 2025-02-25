@@ -146,6 +146,7 @@ float deltaTime;
 ew::Camera newCamera;
 ew::Transform suzanneTransform;
 ew::CameraController cameraController;
+//Variables for imgui modification
 float bias = 0.005;
 float suzanneX = 0.0f;
 float suzanneY = 0.0f;
@@ -156,6 +157,9 @@ float scaleZ = 1.0f;
 float lightX = 0.0f;
 float lightY = 3.0f;
 float lightZ = 0.0f;
+float lightR = 1.0f;
+float lightG = 1.0f;
+float lightB = 1.0f;
 
 void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTime, ew::Mesh plane, ew::Shader& shadowPass)
 {
@@ -209,7 +213,7 @@ void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTim
 	shader.setMat4("light_viewproj", lightViewProj);
 
 	shader.setVec3("light.position", glm::vec3(lightX,lightY,lightZ));
-	shader.setVec3("light.color", glm::vec3(1.0f,1.0f,1.0f));
+	shader.setVec3("light.color", glm::vec3(lightR,lightG,lightB));
 	shader.setInt("shadowMap", 0);
 	shader.setVec3("cameraPosition", newCamera.position);
 	shader.setFloat("material.ambient", material.ambientK);
@@ -295,9 +299,9 @@ void drawUI() {
 	//Suzanne properties
 	if (ImGui::CollapsingHeader("Suzanne"))
 	{
-		ImGui::SliderFloat("Suzanne X", &suzanneX, -10.0f, 10.0f);
-		ImGui::SliderFloat("Suzanne Y", &suzanneY, -10.0f, 10.0f);
-		ImGui::SliderFloat("Suzanne Z", &suzanneZ, -10.0f, 10.0f);
+		ImGui::SliderFloat("Suzanne X", &suzanneX, -5.0f, 5.0f);
+		ImGui::SliderFloat("Suzanne Y", &suzanneY, -4.0f, 4.0f);
+		ImGui::SliderFloat("Suzanne Z", &suzanneZ, -5.0f, 5.0f);
 		ImGui::SliderFloat("Scale X", &scaleX, 0.0f, 5.0f);
 		ImGui::SliderFloat("Scale Y", &scaleY, 0.0f, 5.0f);
 		ImGui::SliderFloat("Scale Z", &scaleZ, 0.0f, 5.0f);
@@ -308,6 +312,12 @@ void drawUI() {
 		ImGui::SliderFloat("Light X", &lightX, -10.0f, 10.0f);
 		ImGui::SliderFloat("Light Y", &lightY, -10.0f, 10.0f);
 		ImGui::SliderFloat("Light Z", &lightZ, -10.0f, 10.0f);
+		if (ImGui::CollapsingHeader("Light Color"))
+		{
+			ImGui::SliderFloat("Red", &lightR, 0.0f, 1.0f);
+			ImGui::SliderFloat("Green", &lightG, 0.0f, 1.0f);
+			ImGui::SliderFloat("Blue", &lightB, 0.0f, 1.0f);
+		}
 	}
 	ImGui::SliderFloat("Shadow Bias", &bias, 0.002f, 0.01f);
 
