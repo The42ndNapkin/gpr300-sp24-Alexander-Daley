@@ -122,7 +122,7 @@ void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTim
 
 int main() {
 
-	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
+	GLFWwindow* window = initWindow("Assignment 1", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	//initialize resources
@@ -243,12 +243,7 @@ int main() {
 				fullscreen.setInt("texture0", 0);
 				break;
 		}
-		glBindVertexArray(fullscreenQuad.vao);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D,framebuffer.color0);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-		glBindVertexArray(0);
+		
 		
 		drawUI();
 

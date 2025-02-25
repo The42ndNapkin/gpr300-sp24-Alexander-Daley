@@ -19,8 +19,8 @@ void main()
 	vec4 worldPos = transform_model * vec4(in_position,1.0);
 
 	worldPosition = worldPos.xyz;
-	lightPosition = light_viewproj * worldPos.xyz;
-	normal = transpose(inverse(mat3(model))) * in_normal;
+	lightPosition = vec3(light_viewproj * worldPos);
+	normal = transpose(inverse(mat3(transform_model))) * in_normal;
 	texcoords = in_texcoord;
 	gl_Position = camera_viewproj * worldPos;
 }
