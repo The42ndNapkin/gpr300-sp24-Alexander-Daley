@@ -151,9 +151,11 @@ struct FullscreenQuad
 		glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), &quad_vertices, GL_STATIC_DRAW);
 
 		glEnableVertexAttribArray(0); // positions
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)0);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(1); // texcoords
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(sizeof(float) * 2));
+
+		glBindVertexArray(0);
 
 	}
 }fullscreenQuad;
@@ -181,6 +183,7 @@ float lightZ = 0.0f;
 float lightR = 1.0f;
 float lightG = 1.0f;
 float lightB = 1.0f;
+int numSuzannes = 5;
 
 void postProcess(ew::Shader shader)
 {
@@ -188,12 +191,22 @@ void postProcess(ew::Shader shader)
 	shader.setInt("gAlbedo", 0);
 	shader.setInt("gPosition", 1);
 	shader.setInt("gNormal", 2);
+	shader.setVec3("cameraPosition", newCamera.position);
+	shader.setVec3("lightPos", glm::vec3(lightX, lightY, lightZ));
+	shader.setVec3("lightColor", glm::vec3(lightR, lightG, lightB));
+	shader.setFloat("mDiffuse", material.diffuseK);
+	shader.setFloat("mShininess", material.shininess);
+	shader.setFloat("mSpecular", material.specularK);
 
 	glDisable(GL_DEPTH_TEST);
 
 	//Clear defualt buffer
 	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glViewport(0, 0, screenWidth, screenHeight);
+
+	glBindVertexArray(fullscreenQuad.vao);
 
 	//draw fullscreen quad
 	glActiveTexture(GL_TEXTURE0);
@@ -204,11 +217,13 @@ void postProcess(ew::Shader shader)
 
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, framebuffer.color2);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
 }
 
 void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTime)
 {
-	//suzanneTransform.rotation = glm::rotate(suzanneTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
 	suzanneTransform.position = glm::vec3(suzanneX, suzanneY, suzanneZ);
 	suzanneTransform.scale = glm::vec3(scaleX,scaleY,scaleZ);
 
@@ -216,7 +231,7 @@ void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTim
 
 	glViewport(0, 0, screenWidth, screenHeight);
 
-	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	glEnable(GL_CULL_FACE);
@@ -231,9 +246,9 @@ void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTim
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
-	for (int i = 0; i < 3; i++)
+	for (int i = 0; i < numSuzannes; i++)
 	{
-		for (int k = 0; k < 3; k++)
+		for (int k = 0; k < numSuzannes; k++)
 		{
 			shader.setMat4("transform_model", glm::translate(glm::vec3(i * 2.0f, 0, k * 2.0f)));
 			model.draw(); //Draws suzanne model using current shader
@@ -241,8 +256,35 @@ void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTim
 	}
 	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 
-	postProcess(shader);
+void renderPointLights(ew::Shader shader, ew::Mesh sphere)
+{
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
+
+	glViewport(0, 0, screenWidth, screenHeight);
+
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glEnable(GL_DEPTH_TEST);
+
+	//Render light spheres
+	shader.use();
+	shader.setMat4("lightColor", newCamera.projectionMatrix() * newCamera.viewMatrix());
+
+	for (int i = 0; i < numSuzannes; i++)
+	{
+		for (int k = 0; k < numSuzannes; k++)
+		{
+			shader.setMat4("transform_model", glm::translate(glm::vec3(lightX + i * 2.0f, lightY, lightZ + k * 2.0f)));
+			sphere.draw();
+		}
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 int main() {
@@ -252,8 +294,10 @@ int main() {
 
 	//initialize resources
 	ew::Shader blinnPhong = ew::Shader("assets/blinnphong.vert", "assets/blinnphong.frag");
-	ew::Shader experimentalLight = ew::Shader("assets/geoShader.vert", "assets/geoShader.frag");
+	ew::Shader geoShader = ew::Shader("assets/geoShader.vert", "assets/geoShader.frag");
+	ew::Shader pointLights = ew::Shader("assets/lights.vert", "assets/lights.frag");
 	ew::Model suzanne = ew::Model("assets/Suzanne.obj");
+	ew::Mesh sphere = ew::createSphere(1, 1);
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
 	//initialize camera
@@ -273,9 +317,16 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
-		//RENDER
-		Render(experimentalLight, suzanne, brickTexture, deltaTime);
 		cameraController.move(window, &newCamera, deltaTime);
+
+		//RENDER geo information
+		Render(geoShader, suzanne, brickTexture, deltaTime);
+
+		// RENDER light information
+		postProcess(blinnPhong);
+
+		// render all lights as spheres
+		renderPointLights(pointLights, sphere);
 
 		drawUI();
 
@@ -311,6 +362,7 @@ void drawUI() {
 	//Suzanne properties
 	if (ImGui::CollapsingHeader("Suzanne"))
 	{
+		ImGui::SliderInt("Suzannes", &numSuzannes, 0, 100);
 		ImGui::SliderFloat("Suzanne X", &suzanneX, -5.0f, 5.0f);
 		ImGui::SliderFloat("Suzanne Y", &suzanneY, -4.0f, 4.0f);
 		ImGui::SliderFloat("Suzanne Z", &suzanneZ, -5.0f, 5.0f);
