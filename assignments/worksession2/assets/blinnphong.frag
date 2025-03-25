@@ -1,5 +1,13 @@
 #version 450
 
+struct PointLight{
+	vec3 position;
+    float radius;
+	vec4 color;
+};
+#define MAX_POINT_LIGHTS 64
+uniform PointLight _PointLights[MAX_POINT_LIGHTS];
+
 out vec4 FragColor;
 
 in vec2 texcoords;  //output texcoords
@@ -19,6 +27,17 @@ uniform float mDiffuse;
 uniform float mShininess;
 uniform float mSpecular;
 
+//Linear falloff
+float attenuateLinear(float distance, float radius){
+	return clamp((radius-distance)/radius,0.0,1.0);
+}
+//Exponential falloff
+float attenuateExponential(float distance, float radius){
+	float i = clamp(1.0 - pow(distance/radius,4.0),0.0,1.0);
+	return i * i;
+	
+}
+
 vec3 blinnphong(vec3 position, vec3 normal)
 {
 	//normalize inputs
@@ -37,13 +56,35 @@ vec3 blinnphong(vec3 position, vec3 normal)
 	return (diffuse + specular);
 }
 
+vec3 calcPointLight(PointLight light,vec3 normal,vec3 pos)
+{	
+	vec3 diff = light.position - pos;
+	//Direction toward light position
+	vec3 toLight = normalize(diff);
+	vec3 lightColor = blinnphong(pos, normal)* vec3(light.color.x,light.color.y,light.color.z);
+	//Attenuation
+	float d = length(diff); //Distance to light
+	lightColor*=attenuateLinear(d,light.radius);
+	return lightColor;
+}
+
 void main()
 {
-	vec3 albedo = texture(gAlbedo, texcoords).rgb;
 	vec3 position = texture(gPosition, texcoords).rgb;
 	vec3 normal = texture(gNormal, texcoords).rgb;
+	vec3 albedo = texture(gAlbedo, texcoords).rgb;
+	vec3 totalLight = vec3(0);
 
-	vec3 lighting = blinnphong(position, normal);
+	PointLight mainLight;
+	mainLight.position = lightPos;
+	mainLight.radius = 1.0f;
+	mainLight.color = vec4(lightColor,1.0f);
 
-	FragColor = vec4(lighting, 1.0);
+	totalLight += blinnphong(position, normal);;
+	for(int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		totalLight+=calcPointLight(_PointLights[i], normal, position);
+	}
+	
+	FragColor = vec4(albedo*totalLight, 1.0);
 }

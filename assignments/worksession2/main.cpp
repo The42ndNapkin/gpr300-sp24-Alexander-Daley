@@ -24,7 +24,8 @@ GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
 
 
-
+int screenWidth = 1080;
+int screenHeight = 720;
 struct Material {
 	float diffuseK = 1; //diffuse light coeficcient (0-1)
 	float specularK = 0.5; //Specular light coeficcient (0-1)
@@ -48,7 +49,7 @@ struct Framebuffer {
 		//color attachment
 		glGenTextures(1, &framebuffer.color0);
 		glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenWidth, screenHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer.color0, 0);
@@ -56,7 +57,7 @@ struct Framebuffer {
 		//color attachment
 		glGenTextures(1, &framebuffer.color1);
 		glBindTexture(GL_TEXTURE_2D, framebuffer.color1);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenWidth, screenHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, framebuffer.color1, 0);
@@ -64,7 +65,7 @@ struct Framebuffer {
 		//color attachment
 		glGenTextures(1, &framebuffer.color2);
 		glBindTexture(GL_TEXTURE_2D, framebuffer.color2);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenWidth, screenHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, framebuffer.color2, 0);
@@ -72,7 +73,7 @@ struct Framebuffer {
 		//Depth buffer attachment
 		glGenTextures(1, &framebuffer.depth);
 		glBindTexture(GL_TEXTURE_2D, framebuffer.depth);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 800, 600, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, screenWidth, screenHeight, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, framebuffer.depth, 0);
@@ -160,9 +161,24 @@ struct FullscreenQuad
 	}
 }fullscreenQuad;
 
+struct PointLight
+{
+	glm::vec3 position;
+	float radius;
+	glm::vec4 color;
+
+	void init(glm::vec3 pos, float r, glm::vec4 c)
+	{
+		position = pos;
+		r = radius;
+		color = c;
+	}
+};
+const int MAX_POINT_LIGHTS = 64;
+PointLight pLights[MAX_POINT_LIGHTS];
+
 //Global state
-int screenWidth = 1080;
-int screenHeight = 720;
+
 float prevFrameTime;
 float deltaTime;
 
@@ -183,7 +199,22 @@ float lightZ = 0.0f;
 float lightR = 1.0f;
 float lightG = 1.0f;
 float lightB = 1.0f;
-int numSuzannes = 5;
+int numSuzannes = 8;
+
+void initLights()
+{
+	for (int i = 0; i < 8; i++)
+	{
+		for (int j = 0; j < 8; j++)
+		{
+			float r = (rand() % 256) / 255.0f;
+			float g = (rand() % 256) / 255.0f;
+			float b = (rand() % 256) / 255.0f;
+			pLights[i * 8 + j] = PointLight();
+			pLights[i * 8 + j].init(glm::vec3(i * 2.0f, 5.0f, j * 2.0f), 1.0f, glm::vec4(r, g, b, 1.0f));
+		}
+	}
+}
 
 void postProcess(ew::Shader shader)
 {
@@ -197,6 +228,12 @@ void postProcess(ew::Shader shader)
 	shader.setFloat("mDiffuse", material.diffuseK);
 	shader.setFloat("mShininess", material.shininess);
 	shader.setFloat("mSpecular", material.specularK);
+	for (int i = 0; i < MAX_POINT_LIGHTS; i++) {
+		std::string prefix = "_PointLights[" + std::to_string(i) + "].";
+		shader.setVec3(prefix + "position", pLights[i].position);
+		shader.setFloat(prefix + "radius", pLights[i].radius);
+		shader.setVec4(prefix + "color", pLights[i].color);
+	}
 
 	glDisable(GL_DEPTH_TEST);
 
@@ -260,28 +297,23 @@ void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTim
 
 void renderPointLights(ew::Shader shader, ew::Mesh sphere)
 {
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
+    //Blit gBuffer depth to same framebuffer as fullscreen quad
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer.fbo); //Read from gBuffer 
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); //Write to current fbo
+	glBlitFramebuffer(0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
-	glViewport(0, 0, screenWidth, screenHeight);
-
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
-	glEnable(GL_DEPTH_TEST);
-
-	//Render light spheres
+	//Draw all light orbs
 	shader.use();
-	shader.setMat4("lightColor", newCamera.projectionMatrix() * newCamera.viewMatrix());
-
-	for (int i = 0; i < numSuzannes; i++)
+	shader.setMat4("_ViewProjection", newCamera.projectionMatrix() * newCamera.viewMatrix());
+	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
-		for (int k = 0; k < numSuzannes; k++)
-		{
-			shader.setMat4("transform_model", glm::translate(glm::vec3(lightX + i * 2.0f, lightY, lightZ + k * 2.0f)));
-			sphere.draw();
-		}
+		glm::mat4 m = glm::mat4(1.0f);
+		m = glm::translate(m, pLights[i].position);
+		m = glm::scale(m, glm::vec3(1.0f));
+
+		shader.setMat4("_Model", m);
+		shader.setVec3("_Color", pLights[i].color);
+		sphere.draw();
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -289,7 +321,7 @@ void renderPointLights(ew::Shader shader, ew::Mesh sphere)
 
 int main() {
 
-	GLFWwindow* window = initWindow("Worksession 2", screenWidth, screenHeight);
+	GLFWwindow* window = initWindow("Assignment 3", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	//initialize resources
@@ -297,7 +329,7 @@ int main() {
 	ew::Shader geoShader = ew::Shader("assets/geoShader.vert", "assets/geoShader.frag");
 	ew::Shader pointLights = ew::Shader("assets/lights.vert", "assets/lights.frag");
 	ew::Model suzanne = ew::Model("assets/Suzanne.obj");
-	ew::Mesh sphere = ew::createSphere(1, 1);
+	ew::Mesh sphereMesh = ew::Mesh(ew::createSphere(1.0f, 8));
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
 	//initialize camera
@@ -309,6 +341,7 @@ int main() {
 	framebuffer.initialize();
 	depthbuffer.initialize();
 	fullscreenQuad.initialize();
+	initLights();
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -326,7 +359,7 @@ int main() {
 		postProcess(blinnPhong);
 
 		// render all lights as spheres
-		renderPointLights(pointLights, sphere);
+		renderPointLights(pointLights, sphereMesh);
 
 		drawUI();
 

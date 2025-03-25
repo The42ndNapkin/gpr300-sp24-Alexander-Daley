@@ -1,10 +1,9 @@
-#version 450
-
+//lightOrb.frag
+#version 450 core
 out vec4 FragColor;
 
-uniform vec3 lightColor;
+uniform vec3 _Color;
 
-void main()
-{
-	FragColor = vec4(lightColor, 1.0);
+void main(){
+	FragColor = vec4(_Color,1.0);
 }
