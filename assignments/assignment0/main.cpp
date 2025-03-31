@@ -126,8 +126,6 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
-		
-
 		//RENDER
 		Render(newShade, suzanne, brickTexture, deltaTime);
 		cameraController.move(window, &newCamera, deltaTime);
