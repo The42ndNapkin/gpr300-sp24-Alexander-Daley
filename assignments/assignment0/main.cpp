@@ -15,7 +15,6 @@
 #include<ew/transform.h>
 
 
-
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();

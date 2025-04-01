@@ -177,6 +177,7 @@ struct PointLight
 
 const int MAX_POINT_LIGHTS = 64;
 PointLight pLights[MAX_POINT_LIGHTS];
+PointLight p;
 
 //Global state
 float prevFrameTime;
@@ -200,6 +201,8 @@ float lightR = 1.0f;
 float lightG = 1.0f;
 float lightB = 1.0f;
 int numSuzannes = 8;
+float metallic = 1.0f;
+float rough = 1.0f;
 
 void initLights()
 {
@@ -266,33 +269,36 @@ void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTim
 
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
 
-	glViewport(0, 0, screenWidth, screenHeight);
-
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
+	//Pipeline definition
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 	glEnable(GL_DEPTH_TEST);
 
-	//Render suzannes
-	shader.use();
-	shader.setMat4("camera_viewproj", newCamera.projectionMatrix() * newCamera.viewMatrix());
-	shader.setInt("_MainTexture", 0);
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glActiveTexture(GL_TEXTURE);
+	glBindTexture(GL_TEXTURE_2D, texture);
 
+	//Render suzanne
+	shader.use();
+	
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
-	for (int i = 0; i < numSuzannes; i++)
-	{
-		for (int k = 0; k < numSuzannes; k++)
-		{
-			shader.setMat4("transform_model", glm::translate(glm::vec3(i * 2.0f, 0, k * 2.0f)));
-			model.draw(); //Draws suzanne model using current shader
-		}
-	}
+	//Set uniforms
+	shader.setVec3("cameraPos", newCamera.position);
+	shader.setVec3("light.position", p.position);
+	shader.setFloat("light.radius", p.radius);
+	shader.setVec4("light.Color", p.color);
+	shader.setMat4("transform_model", suzanneTransform.modelMatrix());
+	shader.setMat4("camera_viewproj", newCamera.projectionMatrix() * newCamera.viewMatrix());
+	shader.setFloat("metallic", metallic);
+	shader.setFloat("roughness", rough);
+
+	model.draw(); //Draws suzanne model using current shader
 	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 }
 
 void renderPointLights(ew::Shader shader, ew::Mesh sphere)
@@ -321,13 +327,14 @@ void renderPointLights(ew::Shader shader, ew::Mesh sphere)
 
 int main() {
 
-	GLFWwindow* window = initWindow("Assignment 3", screenWidth, screenHeight);
+	GLFWwindow* window = initWindow("Worksession 2", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	//initialize resources
 	ew::Shader blinnPhong = ew::Shader("assets/blinnphong.vert", "assets/blinnphong.frag");
 	ew::Shader geoShader = ew::Shader("assets/geoShader.vert", "assets/geoShader.frag");
 	ew::Shader pointLights = ew::Shader("assets/lights.vert", "assets/lights.frag");
+	ew::Shader bdrf = ew::Shader("assets/bdrf.vert", "assets/bdrf.frag");
 	ew::Model suzanne = ew::Model("assets/Suzanne.obj");
 	ew::Mesh sphereMesh = ew::Mesh(ew::createSphere(1.0f, 8));
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
@@ -341,7 +348,12 @@ int main() {
 	framebuffer.initialize();
 	depthbuffer.initialize();
 	fullscreenQuad.initialize();
-	initLights();
+
+	float r = (rand() % 256) / 255.0f;
+	float g = (rand() % 256) / 255.0f;
+	float b = (rand() % 256) / 255.0f;
+	p = PointLight();
+	p.init(glm::vec3(2.0f, 5.0f, 2.0f), 1.0f, glm::vec4(r, g, b, 1.0f));
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -352,14 +364,37 @@ int main() {
 
 		cameraController.move(window, &newCamera, deltaTime);
 
-		//RENDER geo information
-		Render(geoShader, suzanne, brickTexture, deltaTime);
+		//RENDER bdrf information
+		Render(bdrf, suzanne, brickTexture, deltaTime);
 
 		// RENDER light information
-		postProcess(blinnPhong);
+		//postProcess(blinnPhong);
+		glDisable(GL_DEPTH_TEST);
+
+		//Clear defualt buffer
+		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		glViewport(0, 0, screenWidth, screenHeight);
+
+		glBindVertexArray(fullscreenQuad.vao);
+
+		//draw fullscreen quad
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, framebuffer.color1);
+
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, framebuffer.color2);
+
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+
 
 		// render all lights as spheres
-		renderPointLights(pointLights, sphereMesh);
+		//renderPointLights(pointLights, sphereMesh);
 
 		drawUI();
 
@@ -395,15 +430,17 @@ void drawUI() {
 	//Suzanne properties
 	if (ImGui::CollapsingHeader("Suzanne"))
 	{
-		ImGui::SliderInt("Suzannes", &numSuzannes, 0, 100);
 		ImGui::SliderFloat("Suzanne X", &suzanneX, -5.0f, 5.0f);
 		ImGui::SliderFloat("Suzanne Y", &suzanneY, -4.0f, 4.0f);
 		ImGui::SliderFloat("Suzanne Z", &suzanneZ, -5.0f, 5.0f);
 		ImGui::SliderFloat("Scale X", &scaleX, 0.0f, 5.0f);
 		ImGui::SliderFloat("Scale Y", &scaleY, 0.0f, 5.0f);
 		ImGui::SliderFloat("Scale Z", &scaleZ, 0.0f, 5.0f);
+		ImGui::SliderFloat("Metallic", &metallic, 0.0f, 1.0f);
+		ImGui::SliderFloat("Roughness", &rough, 0.0f, 1.0f);
 	}
 	
+
 	ImGui::Begin("OpenGL Texture Test");
 	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color0, ImVec2(800, 600));
 	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color1, ImVec2(800, 600));
