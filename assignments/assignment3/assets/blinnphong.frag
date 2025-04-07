@@ -61,11 +61,12 @@ vec3 calcPointLight(PointLight light,vec3 normal,vec3 pos)
 	vec3 diff = light.position - pos;
 	//Direction toward light position
 	vec3 toLight = normalize(diff);
-	vec3 lightColor = blinnphong(pos, normal)* vec3(light.color.x,light.color.y,light.color.z);
-	//Attenuation
+	vec3 lightColor = blinnphong(pos, normal)* vec3(light.color);
 	float d = length(diff); //Distance to light
-	lightColor*=attenuateLinear(d,light.radius);
+	//Attenuation
+	lightColor *= attenuateLinear(d,light.radius);
 	return lightColor;
+	//return vec3(0.0,1.0,0.0);
 }
 
 void main()
@@ -80,11 +81,12 @@ void main()
 	mainLight.radius = 1.0f;
 	mainLight.color = vec4(lightColor,1.0f);
 
-	totalLight += blinnphong(position, normal);;
+	totalLight += blinnphong(position, normal);
 	for(int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
-		totalLight+=calcPointLight(_PointLights[i], normal, position);
+		totalLight += calcPointLight(_PointLights[i], normal, position);
 	}
 	
 	FragColor = vec4(albedo*totalLight, 1.0);
+	//FragColor = vec4(vec3(1.0), 1.0);
 }

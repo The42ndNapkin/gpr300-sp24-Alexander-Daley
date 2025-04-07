@@ -218,6 +218,17 @@ void initLights()
 
 void postProcess(ew::Shader shader)
 {
+	//draw fullscreen quad
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, framebuffer.color1);
+
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, framebuffer.color2);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	shader.use();
 	shader.setInt("gAlbedo", 0);
 	shader.setInt("gPosition", 1);
@@ -263,7 +274,7 @@ void Render(ew::Shader& shader, ew::Model& model, GLuint texture, float deltaTim
 {
 	suzanneTransform.position = glm::vec3(suzanneX, suzanneY, suzanneZ);
 	suzanneTransform.scale = glm::vec3(scaleX,scaleY,scaleZ);
-
+	//Write to gbuffer
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
 
 	glViewport(0, 0, screenWidth, screenHeight);
